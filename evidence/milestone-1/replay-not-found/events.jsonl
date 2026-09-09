@@ -1,0 +1,9 @@
+{"event": "run_started", "schema_version": "1.0"}
+{"event": "step_started", "index": 0, "action": "navigate"}
+{"event": "step_completed", "index": 0, "action": "navigate"}
+{"event": "step_started", "index": 1, "action": "fill"}
+{"event": "step_completed", "index": 1, "action": "fill"}
+{"event": "step_started", "index": 2, "action": "select"}
+{"event": "step_completed", "index": 2, "action": "select"}
+{"event": "step_started", "index": 3, "action": "click"}
+{"event": "run_finished", "status": "business_outcome", "code": "member_not_found"}

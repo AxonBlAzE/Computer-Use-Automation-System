@@ -1,0 +1,12 @@
+.venv/
+.bootstrap/
+.uv-cache/
+.browsers/
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+*.pyc
+.env
+runs/
+tmp/
+/DESIGN_JOURNAL.private.md

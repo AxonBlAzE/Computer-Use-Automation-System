@@ -1,0 +1,24 @@
+{"event": "run_started", "schema_version": "1.0"}
+{"event": "step_started", "index": 0, "action": "navigate"}
+{"event": "step_completed", "index": 0, "action": "navigate"}
+{"event": "step_started", "index": 1, "action": "fill"}
+{"event": "step_completed", "index": 1, "action": "fill"}
+{"event": "step_started", "index": 2, "action": "select"}
+{"event": "step_completed", "index": 2, "action": "select"}
+{"event": "step_started", "index": 3, "action": "click"}
+{"event": "step_completed", "index": 3, "action": "click"}
+{"event": "step_started", "index": 4, "action": "check"}
+{"event": "step_completed", "index": 4, "action": "check"}
+{"event": "step_started", "index": 5, "action": "click"}
+{"event": "step_completed", "index": 5, "action": "click"}
+{"event": "step_started", "index": 6, "action": "select"}
+{"event": "step_completed", "index": 6, "action": "select"}
+{"event": "step_started", "index": 7, "action": "fill"}
+{"event": "step_completed", "index": 7, "action": "fill"}
+{"event": "step_started", "index": 8, "action": "click"}
+{"event": "step_completed", "index": 8, "action": "click"}
+{"event": "step_started", "index": 9, "action": "check"}
+{"event": "step_completed", "index": 9, "action": "check"}
+{"event": "step_started", "index": 10, "action": "check"}
+{"event": "step_completed", "index": 10, "action": "check"}
+{"event": "run_finished", "status": "success"}

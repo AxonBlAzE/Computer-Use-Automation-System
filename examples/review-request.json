@@ -1,0 +1,35 @@
+{
+  "schema_version": "1.0",
+  "name": "review_service_request",
+  "version": "1.0.0",
+  "description": "Hand-authored milestone fixture: prepare a synthetic service request without submitting it.",
+  "inputs": {
+    "member_id": {"type": "string", "description": "Synthetic member identifier", "max_length": 20},
+    "request_type": {"type": "string", "description": "Requested service", "choices": ["statement", "address"]},
+    "request_note": {"type": "string", "description": "Synthetic request note", "max_length": 200},
+    "scenario": {"type": "string", "description": "Demo load scenario", "choices": ["normal", "slow"]}
+  },
+  "outputs": {
+    "member_id": {"field": {"type": "string", "description": "Member shown on review"}, "target": {"role": "status", "name": "Reviewed member ID"}},
+    "request_type": {"field": {"type": "string", "description": "Service shown on review", "choices": ["statement", "address"]}, "target": {"role": "status", "name": "Reviewed request type"}},
+    "review_status": {"field": {"type": "string", "description": "Review readiness", "choices": ["ready"]}, "target": {"role": "status", "name": "Review status"}}
+  },
+  "steps": [
+    {"id": "open", "action": "navigate", "path": "/"},
+    {"id": "member", "action": "fill", "target": {"role": "textbox", "name": "Member ID"}, "value": {"source": "input", "name": "member_id"}},
+    {"id": "scenario", "action": "select", "target": {"role": "combobox", "name": "Demo scenario"}, "value": {"source": "input", "name": "scenario"}},
+    {"id": "search", "action": "click", "target": {"role": "button", "name": "Find member"}},
+    {"id": "details", "action": "check", "target": {"role": "heading", "name": "Member details"}},
+    {"id": "new", "action": "click", "target": {"role": "button", "name": "New service request"}},
+    {"id": "kind", "action": "select", "target": {"role": "combobox", "name": "Request type"}, "value": {"source": "input", "name": "request_type"}},
+    {"id": "note", "action": "fill", "target": {"role": "textbox", "name": "Request note"}, "value": {"source": "input", "name": "request_note"}},
+    {"id": "review", "action": "click", "target": {"role": "button", "name": "Review request"}},
+    {"id": "verify_member", "action": "check", "target": {"role": "status", "name": "Reviewed member ID"}, "equals": {"source": "input", "name": "member_id"}},
+    {"id": "verify_kind", "action": "check", "target": {"role": "status", "name": "Reviewed request type"}, "equals": {"source": "input", "name": "request_type"}}
+  ],
+  "outcomes": [
+    {"code": "member_not_found", "after_step": "search", "target": {"role": "status", "name": "Member not found"}},
+    {"code": "validation_error", "after_step": "review", "target": {"role": "alert", "name": "Validation error"}}
+  ],
+  "success": {"id": "complete", "action": "check", "target": {"role": "status", "name": "Review status"}, "equals": {"source": "literal", "value": "ready"}}
+}

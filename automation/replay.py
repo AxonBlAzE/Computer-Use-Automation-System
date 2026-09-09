@@ -1,0 +1,274 @@
+"""Execute a reviewed capability against a live browser without model decisions."""
+
+import asyncio
+import json
+import time
+from pathlib import Path
+
+from playwright.async_api import Error as BrowserError
+from playwright.async_api import Page, async_playwright
+
+from automation.contracts import (
+    BusinessOutcome,
+    Capability,
+    Check,
+    Constant,
+    Failure,
+    InputRef,
+    RunResult,
+    Success,
+    Target,
+)
+from automation.policy import Policy, PolicyDenied
+
+
+class ReplayStopped(Exception):
+    def __init__(self, result: RunResult):
+        self.result = result
+
+
+class BrowserSurface:
+    """Browser-specific targeting stays here, outside the capability model."""
+
+    def __init__(self, page: Page, policy: Policy):
+        self.page = page
+        self.policy = policy
+        self.blocked = False
+        self.dialog_seen = False
+
+    async def guard_request(self, route):
+        try:
+            self.policy.check_url(route.request.url)
+        except PolicyDenied:
+            self.blocked = True
+            await route.abort()
+        else:
+            await route.continue_()
+
+    async def dismiss_dialog(self, dialog):
+        # This milestone stops; a later session controller will transfer to a human.
+        self.dialog_seen = True
+        await dialog.dismiss()
+
+    def guard(self):
+        if self.blocked:
+            raise PolicyDenied("browser request was blocked")
+        if self.dialog_seen:
+            raise ReplayStopped(
+                Failure(
+                    code="intervention_required",
+                    step=None,
+                    expected="no unexpected dialog",
+                    observed="browser dialog encountered",
+                )
+            )
+        self.policy.check_url(self.page.url)
+
+    def locate(self, target: Target):
+        return self.page.get_by_role(target.role, name=target.name, exact=True)
+
+    async def structural_snapshot(self, path: Path):
+        # Richer failure signal with no text, input values, URLs, or arbitrary attributes.
+        nodes = await self.page.locator("body").evaluate("""body =>
+            Array.from(body.querySelectorAll('*')).slice(0, 200).map(el => ({
+                tag: el.tagName.toLowerCase(),
+                role: ['heading','status','alert','button','textbox','combobox']
+                    .includes(el.getAttribute('role')) ? el.getAttribute('role') : null,
+                visible: !!(el.getClientRects().length),
+                disabled: el.matches(':disabled')
+            }))""")
+        path.write_text(json.dumps(nodes, indent=2), encoding="utf-8")
+
+
+async def replay(
+    capability: Capability,
+    inputs: dict[str, object],
+    policy: Policy,
+    evidence_dir: Path,
+    *,
+    headed: bool = False,
+) -> RunResult:
+    """Outputs go to the caller; persistent evidence deliberately excludes their values."""
+    try:
+        capability.validate_inputs(inputs)
+    except ValueError:
+        return Failure(
+            code="invalid_input",
+            step=None,
+            expected="declared input contract",
+            observed="invalid input shape or value",
+        )
+
+    evidence_dir.mkdir(parents=True, exist_ok=False)
+    log = evidence_dir / "events.jsonl"
+    current: str | None = None
+    completed: set[str] = set()
+    surface: BrowserSurface | None = None
+
+    def event(kind: str, **fields):
+        with log.open("a", encoding="utf-8") as stream:
+            stream.write(json.dumps({"event": kind, **fields}) + "\n")
+
+    def resolve(value: InputRef | Constant) -> str:
+        return inputs[value.name] if isinstance(value, InputRef) else value.value
+
+    async def detect_outcome():
+        for outcome in capability.outcomes:
+            if outcome.after_step in completed:
+                locator = surface.locate(outcome.target)
+                count = await locator.count()
+                if count > 1:
+                    raise ReplayStopped(
+                        Failure(
+                            code="ambiguous_target",
+                            step=current,
+                            expected="one outcome marker",
+                            observed="multiple matches",
+                        )
+                    )
+                if count == 1 and await locator.is_visible():
+                    raise ReplayStopped(BusinessOutcome(code=outcome.code, step=current))
+
+    async def target_ready(target: Target, expected: str | None = None):
+        deadline = time.monotonic() + policy.timeout_ms / 1000
+        while True:
+            surface.guard()
+            await detect_outcome()
+            locator = surface.locate(target)
+            count = await locator.count()
+            if count > 1:
+                raise ReplayStopped(
+                    Failure(
+                        code="ambiguous_target",
+                        step=current,
+                        expected="exactly one matching control",
+                        observed="multiple matches",
+                    )
+                )
+            if count == 1 and await locator.is_visible():
+                if expected is None or (await locator.inner_text()).strip() == expected:
+                    return locator
+            if time.monotonic() >= deadline:
+                raise ReplayStopped(
+                    Failure(
+                        code="checkpoint_timeout",
+                        step=current,
+                        expected="unique visible target and declared checkpoint",
+                        observed="target absent, hidden, or content did not match",
+                    )
+                )
+            await asyncio.sleep(0.05)
+
+    async def execute():
+        nonlocal current
+        for index, step in enumerate(capability.steps):
+            current = step.id
+            event("step_started", index=index, action=step.action)
+            if step.action == "navigate":
+                if index != 0:
+                    surface.guard()
+                await surface.page.goto(policy.url(step.path), wait_until="domcontentloaded")
+            else:
+                surface.guard()
+                if step.action == "check":
+                    await target_ready(step.target, resolve(step.equals) if step.equals else None)
+                else:
+                    policy.check_action(step.action, step.target)
+                    locator = await target_ready(step.target)
+                    if step.action == "fill":
+                        await locator.fill(resolve(step.value))
+                    elif step.action == "select":
+                        await locator.select_option(resolve(step.value))
+                    elif step.action == "click":
+                        # Never retry a click: its business effect might already have happened.
+                        await locator.click()
+            completed.add(step.id)
+            surface.guard()
+            await detect_outcome()
+            event("step_completed", index=index, action=step.action)
+
+        current = capability.success.id
+        checkpoint: Check = capability.success
+        await target_ready(
+            checkpoint.target, resolve(checkpoint.equals) if checkpoint.equals else None
+        )
+        outputs = {}
+        for name, output in capability.outputs.items():
+            locator = await target_ready(output.target)
+            value = (await locator.inner_text()).strip()
+            if not output.field.accepts(value):
+                raise ReplayStopped(
+                    Failure(
+                        code="invalid_output",
+                        step=current,
+                        expected="declared output contract",
+                        observed="extracted value invalid",
+                    )
+                )
+            outputs[name] = value
+        return Success(outputs=outputs)
+
+    event("run_started", schema_version=capability.schema_version)
+    result: RunResult
+    try:
+        async with async_playwright() as browser_api:
+            browser = await browser_api.chromium.launch(headless=not headed)
+            try:
+                context = await browser.new_context(service_workers="block")
+                page = await context.new_page()
+                surface = BrowserSurface(page, policy)
+                page.set_default_timeout(policy.timeout_ms)
+                await context.route("**/*", surface.guard_request)
+                page.on("dialog", surface.dismiss_dialog)
+                try:
+                    result = await asyncio.wait_for(execute(), timeout=60)
+                except ReplayStopped as stopped:
+                    result = stopped.result
+                    if isinstance(result, Failure) and result.step is None:
+                        result.step = current
+                except PolicyDenied:
+                    result = Failure(
+                        code="policy_denied",
+                        step=current,
+                        expected="allowlisted action and destination",
+                        observed="policy rejected the operation",
+                    )
+                except TimeoutError:
+                    result = Failure(
+                        code="run_timeout",
+                        step=current,
+                        expected="completion within 60 seconds",
+                        observed="run budget exhausted",
+                    )
+                except BrowserError:
+                    result = Failure(
+                        code="policy_denied" if surface.blocked else "browser_error",
+                        step=current,
+                        expected="permitted browser operation completes",
+                        observed="request blocked"
+                        if surface.blocked
+                        else "browser operation failed",
+                    )
+                if isinstance(result, Failure):
+                    try:
+                        await asyncio.wait_for(
+                            surface.structural_snapshot(evidence_dir / "failure-dom.json"),
+                            timeout=2,
+                        )
+                    except (BrowserError, TimeoutError):
+                        event("failure_snapshot_unavailable")
+            finally:
+                await browser.close()
+    except BrowserError:
+        result = Failure(
+            code="browser_unavailable",
+            step=current,
+            expected="installed Chromium can launch",
+            observed="browser launch or lifecycle failed",
+        )
+    event(
+        "run_finished",
+        status=result.status,
+        **({"code": result.code} if not isinstance(result, Success) else {}),
+    )
+    return result

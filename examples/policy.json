@@ -1,0 +1,14 @@
+{
+  "origin": "http://127.0.0.1:8000",
+  "routes": ["/", "/members", "/request", "/review"],
+  "timeout_ms": 3000,
+  "permissions": [
+    {"action": "fill", "target": {"role": "textbox", "name": "Member ID"}},
+    {"action": "select", "target": {"role": "combobox", "name": "Demo scenario"}},
+    {"action": "click", "target": {"role": "button", "name": "Find member"}},
+    {"action": "click", "target": {"role": "button", "name": "New service request"}},
+    {"action": "select", "target": {"role": "combobox", "name": "Request type"}},
+    {"action": "fill", "target": {"role": "textbox", "name": "Request note"}},
+    {"action": "click", "target": {"role": "button", "name": "Review request"}}
+  ]
+}
