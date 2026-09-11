@@ -16,6 +16,7 @@ from automation.policy import Policy
 from automation.replay import replay
 from automation.session import (
     HandoffConfig,
+    SessionController,
     SessionStopped,
     run_with_budget,
     send_command,
@@ -308,3 +309,30 @@ def test_discovery_no_progress_routes_to_operator(origin, tmp_path):
     )
     assert result.status == "success", result
     assert any(e["event"] == "resume_verified" for e in events(tmp_path / "run"))
+
+
+def test_invalid_ownership_transition_is_rejected(tmp_path):
+    config = HandoffConfig.model_validate_json(Path("examples/handoff.json").read_text())
+    session = SessionController(config, tmp_path, lambda *a, **kw: None, run_name="test")
+    with pytest.raises(SessionStopped, match="invalid_ownership_transition"):
+        session.transition("HUMAN")
+    assert session.state == "AUTOMATION"
+    session.close()
+    session.close()  # Cleanup is idempotent.
+    with pytest.raises(SessionStopped, match="invalid_ownership_transition"):
+        session.transition("AUTOMATION")
+
+
+def test_operator_closes_browser(interruption_origin, tmp_path):
+    cap, policy, config, inputs = setup(interruption_origin)
+
+    async def operator(session, surface):
+        await surface.page.close()
+
+    result = asyncio.run(
+        replay(
+            cap, inputs, policy, tmp_path / "run", handoff_config=config, operator_driver=operator
+        )
+    )
+    assert result.code == "operator_closed_session"
+    assert json.loads((tmp_path / "run/intervention.json").read_text())["state"] == "CLOSED"

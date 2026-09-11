@@ -28,11 +28,10 @@ without field values. These are copied test outputs, not hand-written illustrati
 uv run pytest tests/test_handoff.py -v
 ```
 
-The full suite passed 45 tests, including 12 handoff tests covering the above scenarios plus premature resume,
+At this milestone, the full suite passed 45 tests, including 12 handoff tests covering the above scenarios plus premature resume,
 timeouts, missing resume configuration, no handoff option, discovery reobservation,
 discovery no-progress escalation, pause-aware budgets, input redaction, and route-policy
 enforcement while the operator owns the browser. These tests do not use model credits.
 
-For a genuine manual demonstration, follow the three-terminal **Manual handoff demo**
-in the root README. The saved milestone-2 capability can be used unchanged. Keep that
-manual run separate from these simulated-operator runs when presenting the assessment.
+The three-terminal **Manual handoff demo** in the root README reproduces the flow with
+a person operating the browser. It uses the saved milestone-2 capability unchanged.

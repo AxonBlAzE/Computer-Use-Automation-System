@@ -22,8 +22,8 @@ The discovery code does not load `examples/review-request.json` or its action se
 
 Known business-outcome rules are explicitly operator-authored in the task contract.
 The model selected the action sequence and output targets; the compiler bound outcome
-rules to matching recorded clicks and generated output assertions. These distinctions
-are part of the design, rather than claims that a successful run learned unseen errors.
+rules to matching recorded clicks and generated output assertions. I kept error rules
+in the task contract because a successful trace cannot establish unseen error behavior.
 
 ## Commands
 
@@ -49,8 +49,8 @@ inside the network-restricted environment with only local UI access.
 - `discovery-verified/`: the original nested decision-envelope schema returned an
   invalid response; no model action executed and no capability was published.
 - Subsequent one-call diagnostics under ignored `runs/` localized a `dict_type` error
-  to the envelope's `decision` field. Replacing that envelope at the provider boundary
-  with separate typed tools produced the successful run above.
+  to the envelope's `decision` field. I replaced that envelope at the provider boundary
+  with separate typed tools, which produced the successful run above.
 
 No raw API responses, credentials, or model reasoning are included. The successful
 logs record fixed intent categories and validated actions, not a full transcript.
@@ -64,7 +64,7 @@ semantic content changed. `.gitattributes` preserves evidence line endings on ch
 
 ## Limits
 
-This evidence proves one discovery and changed-input replay on the controlled surface.
+This evidence demonstrates one discovery and changed-input replay on the controlled surface.
 It does not establish statistical reliability, human handoff, legacy-frame support,
 desktop support, or tenant generalization. Automated tests use an explicitly scripted
 offline model; those tests do not substitute for the live discovery evidence here.

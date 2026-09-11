@@ -13,7 +13,9 @@ from automation.replay import replay
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Deterministic UI capability replay")
+    parser = argparse.ArgumentParser(
+        description="Discover, replay, and hand off typed UI capabilities"
+    )
     commands = parser.add_subparsers(dest="command", required=True)
     schema = commands.add_parser("schema", help="Print the capability JSON Schema")
     schema.set_defaults(command="schema")

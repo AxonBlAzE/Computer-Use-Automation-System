@@ -1,10 +1,10 @@
 # Milestone 1 replay evidence
 
-These logs were produced by real Chromium executions against the local FastAPI app.
-The source capability is `examples/review-request.json`, a **hand-authored fixture**.
-These runs do not demonstrate LLM discovery or human handoff.
+I started with a **hand-authored fixture**, `examples/review-request.json`, to validate
+replay before adding discovery. These logs capture real Chromium executions against
+the local FastAPI app. Discovery and operator handoff were added in later milestones.
 
-Commands (with the demo server already running):
+Commands used (with the demo server already running):
 
 ```sh
 uv run python -m automation replay examples/review-request.json --inputs examples/inputs-second-member.json --evidence-dir evidence/milestone-1/replay-success

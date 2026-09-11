@@ -93,7 +93,7 @@ class BrowserSurface:
             await route.continue_()
 
     async def dismiss_dialog(self, dialog):
-        # This milestone stops; a later session controller will transfer to a human.
+        # Native dialogs stop the run; handoff handles configured in-page checkpoints.
         self.dialog_seen = True
         await dialog.dismiss()
 

@@ -61,6 +61,14 @@ def send_command(directory: Path, action: str, request_id: str | None = None):
 
 
 class SessionController:
+    TRANSITIONS = {
+        "AUTOMATION": {"PAUSED", "CLOSED"},
+        "PAUSED": {"HUMAN", "CLOSED"},
+        "HUMAN": {"RESUME_VALIDATION", "CLOSED"},
+        "RESUME_VALIDATION": {"HUMAN", "AUTOMATION", "CLOSED"},
+        "CLOSED": set(),
+    }
+
     def __init__(self, config, directory, event, *, run_name, operator_driver=None):
         self.config = config
         self.directory = directory
@@ -80,6 +88,10 @@ class SessionController:
             raise SessionStopped("automation_does_not_own_session")
 
     def transition(self, state):
+        if self.state == state == "CLOSED":
+            return
+        if state not in self.TRANSITIONS[self.state]:
+            raise SessionStopped("invalid_ownership_transition")
         previous = self.state
         self.state = state
         self.event("ownership_changed", session_id=self.session_id, previous=previous, state=state)
