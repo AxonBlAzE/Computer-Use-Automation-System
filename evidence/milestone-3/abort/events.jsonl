@@ -1,0 +1,17 @@
+{"event": "run_started", "schema_version": "1.0"}
+{"event": "step_started", "index": 0, "action": "navigate"}
+{"event": "step_completed", "index": 0, "action": "navigate"}
+{"event": "step_started", "index": 1, "action": "fill"}
+{"event": "step_completed", "index": 1, "action": "fill"}
+{"event": "step_started", "index": 2, "action": "select"}
+{"event": "step_completed", "index": 2, "action": "select"}
+{"event": "step_started", "index": 3, "action": "click"}
+{"event": "step_completed", "index": 3, "action": "click"}
+{"event": "step_started", "index": 4, "action": "click"}
+{"event": "ownership_changed", "session_id": "155aff2b3fe44780b04f264b6f62b9c9", "previous": "AUTOMATION", "state": "PAUSED"}
+{"event": "intervention_requested", "request_id": "ec06c654987849fbbf50ec665912e6fe", "session_id": "155aff2b3fe44780b04f264b6f62b9c9", "capability": "review_service_request", "step": "s004", "reason": "blocked_before_action", "state": "PAUSED", "expected": "blocker removed and configured resume checks pass", "snapshot": "intervention-ec06c654987849fbbf50ec665912e6fe-dom.json", "operator_kind": "test_driver"}
+{"event": "ownership_changed", "session_id": "155aff2b3fe44780b04f264b6f62b9c9", "previous": "PAUSED", "state": "HUMAN"}
+{"event": "operator_command_rejected", "reason": "stale_request"}
+{"event": "operator_aborted", "request_id": "ec06c654987849fbbf50ec665912e6fe"}
+{"event": "ownership_changed", "session_id": "155aff2b3fe44780b04f264b6f62b9c9", "previous": "HUMAN", "state": "CLOSED"}
+{"event": "run_finished", "status": "failure", "code": "operator_aborted"}

@@ -1,12 +1,15 @@
 # Computer-Use Automation System
 
-Milestone 2: an OpenRouter model discovers a workflow on a synthetic FastAPI banking UI,
+Milestone 3: an OpenRouter model discovers a workflow on a synthetic FastAPI banking UI,
 then a saved typed capability replays through Playwright without model decisions.
+Optional operator handoff pauses before an action, preserves the live browser, and
+requires verified checkpoints before resuming.
 Discovery needs an API key; replay and automated tests do not.
 
 `examples/review-request.json` is the original hand-authored fixture.
 `evidence/milestone-2/discovery-tools/capability.json` was produced by a genuine model
-run and successfully replayed with different inputs. Human takeover is still a future milestone.
+run and successfully replayed with different inputs. Operator handoff is implemented
+and browser-tested with a simulated operator; a person can run the manual demo below.
 
 ## Setup
 
@@ -108,6 +111,70 @@ sanitized structural `failure-dom.json`. Use `--evidence-dir <new-directory>` to
 the destination. Existing directories are never overwritten. Declared outputs are
 returned on stdout, not persisted into the event log. Treat stdout as potentially sensitive.
 
+## Manual handoff demo
+
+This demo reuses the saved model-generated capability; it needs no model credits.
+The injected runtime interruption is part of the target app, not an extra recorded step.
+Use three PowerShell terminals, all in the repository root.
+
+**Terminal 1:** stop an existing demo server with Ctrl+C, then start it with the blocker:
+
+```powershell
+$env:DEMO_INTERRUPT = "1"
+.venv\Scripts\python.exe -m uvicorn demo_app.app:app --host 127.0.0.1 --port 8000 --no-access-log
+```
+
+**Terminal 2:** start replay with a visible browser and operator configuration:
+
+```powershell
+$env:PLAYWRIGHT_BROWSERS_PATH = "$PWD/.browsers"
+.venv\Scripts\python.exe -m automation replay evidence/milestone-2/discovery-tools/capability.json --inputs examples/inputs.json --headed --handoff-config examples/handoff.json --evidence-dir runs/my-handoff
+```
+
+Choose a new run directory each time. Replay finds the member, sees the interruption,
+and prints an intervention request. The original browser remains open.
+
+**Terminal 3:** inspect the request:
+
+```powershell
+.venv\Scripts\python.exe -m automation operator runs/my-handoff status
+```
+
+Click **Resolve interruption** in the browser opened by replay. Do not advance to the
+next screen manually. Then signal resume:
+
+```powershell
+.venv\Scripts\python.exe -m automation operator runs/my-handoff resume
+```
+
+The runner checks that the modal is gone, the member ID still matches the invocation,
+the Member details screen is present, and the pending control is enabled. It then
+continues the original run and returns success. To stop instead:
+
+```powershell
+.venv\Scripts\python.exe -m automation operator runs/my-handoff abort
+```
+
+The runner also prints a command with `--request-id` to protect against submitting a
+command for a different intervention. Without it, the CLI addresses the currently
+displayed request. Commands for expired requests are rejected.
+
+Try `resume` before resolving the modal: validation fails and ownership stays HUMAN.
+Aborting or waiting beyond the configured 180-second deadline closes the run. To return
+to the normal demo, stop Terminal 1's server, remove the environment variable with
+`Remove-Item Env:DEMO_INTERRUPT`, and restart the server.
+
+The same `--headed --handoff-config examples/handoff.json` options work with `discover`.
+Discovery reobserves after handoff rather than executing an old model decision. A
+configured checkpoint can also support handoff after repeated no-progress decisions
+or a pre-action target timeout. Unconfigured resume locations stop conservatively.
+
+`intervention.json` shows the current state; event logs preserve ownership transitions,
+the same session ID, resume acceptance/rejection, and operator interactions. Control
+names are mapped to trusted aliases; field values, keystrokes, and raw URLs are omitted.
+DOM snapshots are structural only. The mailbox is a local filesystem interface for a
+trusted operator, not an authenticated remote operator service.
+
 ## Contract and execution
 
 ```sh
@@ -126,6 +193,8 @@ uv run ruff check .
 - `automation/discovery.py`: bounded observation/decision loop and artifact compilation.
 - `automation/openrouter.py`: direct HTTP tool-calling adapter, strict response validation,
   and discovery-only `.env` loading. Simple tool schemas keep the provider boundary small.
+- `automation/session.py`: ownership, local operator commands, bounded waiting, action
+  recording, and checkpoint validation. `examples/handoff.json` is trusted operator configuration.
 - `demo_app/app.py`: multi-page search, member detail, request form, and review flow.
 
 Every run uses a fresh browser context. Replay validates invocation inputs before
@@ -140,8 +209,17 @@ business API. Both invalid form notes and missing members have explicit outcomes
 - The input/output type vocabulary deliberately supports strings and string enums only.
 - A `slow` scenario demonstrates bounded loading; no write retries or automated recovery
   after uncertain side effects are implemented.
-- Unexpected browser dialogs are dismissed and return `intervention_required`; this is
-  **not** a human handoff implementation. In-page unknown states fail their checkpoints.
+- Handoff supports in-page modal blockers and configured pre-action checkpoints. Native
+  browser dialogs retain stop behavior; they are not handed over mid-action. Failed or
+  uncertain in-flight clicks are never automatically retried.
+- Operator waiting has its own deadline and does not consume the automation execution
+  budget. At most three interventions are allowed by the example configuration.
+- Ownership is enforced inside the runner, not by locking the OS mouse/keyboard. A
+  cooperative operator should touch the browser only while the request says HUMAN.
+  HTTP route policy remains active during human ownership; handoff is not a policy override.
+- Browser interaction capture is lightweight telemetry, not an immutable audit trail or
+  a complete recording. Unmapped controls are recorded by control kind only; interactions
+  are not converted automatically into reusable capability steps.
 - Persistent observations exclude page text, field values, URLs, transcripts, and screenshots.
   Discovery additionally records validated target labels and parameter references.
   Failure snapshots retain only structural tags, allowlisted roles, visibility, and disabled state.
@@ -152,5 +230,5 @@ business API. Both invalid form notes and missing members have explicit outcomes
   externally exposed hosting, or production data with it. Browser URLs contain entered values.
 - Discovery currently requires a task contract; arbitrary goals without declared output
   expectations are not supported. The model does not invent outcome rules or policies.
-- Real handoff, desktop support, multi-tenant implementation, and the final assessment
-  report remain subsequent milestones.
+- Desktop support, multi-tenant implementation, and the final assessment report remain
+  outstanding. Handoff evidence uses a simulated operator and is labeled accordingly.

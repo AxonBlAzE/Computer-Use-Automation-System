@@ -20,6 +20,7 @@ from automation.contracts import (
     Target,
 )
 from automation.policy import Policy, PolicyDenied
+from automation.session import SessionController, SessionStopped, run_with_budget
 
 
 class ReplayStopped(Exception):
@@ -30,11 +31,57 @@ class ReplayStopped(Exception):
 class BrowserSurface:
     """Browser-specific targeting stays here, outside the capability model."""
 
-    def __init__(self, page: Page, policy: Policy):
+    def __init__(self, page: Page, policy: Policy, session=None):
         self.page = page
         self.policy = policy
         self.blocked = False
         self.dialog_seen = False
+        self.session = session
+
+    async def has_blocker(self):
+        dialogs = self.page.locator('dialog[open], [role="dialog"][aria-modal="true"]')
+        for dialog in await dialogs.all():
+            if await dialog.is_visible():
+                return True
+        return False
+
+    async def intervene_if_blocked(self, inputs, step=None, *, force=False):
+        if not force and not await self.has_blocker():
+            return
+        if not self.session:
+            raise ReplayStopped(
+                Failure(
+                    code="intervention_required",
+                    step=step.id if step else None,
+                    expected="unblocked UI",
+                    observed="modal blocks automation",
+                )
+            )
+        rule = None
+        for candidate in self.session.config.rules:
+            if step is not None and step.action != "check" and candidate.before != step.target:
+                continue
+            locator = self.locate(candidate.before)
+            if (
+                step is not None
+                and candidate.before == step.target
+                or await locator.count() == 1
+                and await locator.is_visible()
+            ):
+                rule = candidate
+                break
+        if rule is None:
+            raise SessionStopped("resume_checkpoint_not_configured")
+        pending = step or Check(id="discovery_observation", action="check", target=rule.before)
+        await self.session.handoff(pending, inputs, rule)
+
+    async def before_observation(self, inputs, *, force=False):
+        if self.session:
+            self.session.require_automation()
+            async with self.session.lock:
+                await self.intervene_if_blocked(inputs, force=force)
+        else:
+            await self.intervene_if_blocked(inputs, force=force)
 
     async def guard_request(self, route):
         try:
@@ -100,6 +147,14 @@ class BrowserSurface:
 
     async def execute_step(self, step, inputs, *, inspect=None):
         """One policy-checked executor shared by discovery and deterministic replay."""
+        if self.session:
+            self.session.require_automation()
+            async with self.session.lock:
+                self.session.require_automation()
+                return await self._execute_step(step, inputs, inspect=inspect)
+        return await self._execute_step(step, inputs, inspect=inspect)
+
+    async def _execute_step(self, step, inputs, *, inspect=None):
 
         def resolve(value):
             return inputs[value.name] if isinstance(value, InputRef) else value.value
@@ -112,13 +167,29 @@ class BrowserSurface:
             self.guard()
             if step.action != "check":
                 self.policy.check_action(step.action, step.target)
+            await self.intervene_if_blocked(inputs, step)
             expected = resolve(step.equals) if step.action == "check" and step.equals else None
-            locator = await self.target_ready(
-                step.target,
-                expected,
-                inspect=inspect,
-                step=step.id,
-            )
+            try:
+                locator = await self.target_ready(
+                    step.target,
+                    expected,
+                    inspect=inspect,
+                    step=step.id,
+                )
+            except ReplayStopped as stopped:
+                if (
+                    not self.session
+                    or getattr(stopped.result, "code", None) != "checkpoint_timeout"
+                ):
+                    raise
+                # This wait failed before dispatch. Never use this path to retry a click.
+                await self.intervene_if_blocked(inputs, step, force=True)
+                locator = await self.target_ready(
+                    step.target,
+                    expected,
+                    inspect=inspect,
+                    step=step.id,
+                )
             if step.action == "fill":
                 await locator.fill(resolve(step.value))
             elif step.action == "select":
@@ -148,10 +219,16 @@ async def replay(
     evidence_dir: Path,
     *,
     headed: bool = False,
+    handoff_config=None,
+    operator_driver=None,
 ) -> RunResult:
     """Outputs go to the caller; persistent evidence deliberately excludes their values."""
     try:
         capability.validate_inputs(inputs)
+        if handoff_config:
+            handoff_config.validate_inputs(inputs)
+            if not headed and operator_driver is None:
+                raise ValueError("human handoff requires a headed browser")
     except ValueError:
         return Failure(
             code="invalid_input",
@@ -169,6 +246,18 @@ async def replay(
     def event(kind: str, **fields):
         with log.open("a", encoding="utf-8") as stream:
             stream.write(json.dumps({"event": kind, **fields}) + "\n")
+
+    session = (
+        SessionController(
+            handoff_config,
+            evidence_dir,
+            event,
+            run_name=capability.name,
+            operator_driver=operator_driver,
+        )
+        if handoff_config
+        else None
+    )
 
     def resolve(value: InputRef | Constant) -> str:
         return inputs[value.name] if isinstance(value, InputRef) else value.value
@@ -205,6 +294,7 @@ async def replay(
             event("step_completed", index=index, action=step.action)
 
         current = capability.success.id
+        await surface.before_observation(inputs)
         checkpoint: Check = capability.success
         await target_ready(
             checkpoint.target, resolve(checkpoint.equals) if checkpoint.equals else None
@@ -233,12 +323,21 @@ async def replay(
             try:
                 context = await browser.new_context(service_workers="block")
                 page = await context.new_page()
-                surface = BrowserSurface(page, policy)
+                surface = BrowserSurface(page, policy, session)
                 page.set_default_timeout(policy.timeout_ms)
                 await context.route("**/*", surface.guard_request)
                 page.on("dialog", surface.dismiss_dialog)
+                if session:
+                    await session.attach(surface)
                 try:
-                    result = await asyncio.wait_for(execute(), timeout=60)
+                    result = await run_with_budget(execute(), 60, session)
+                except SessionStopped as stopped:
+                    result = Failure(
+                        code=str(stopped),
+                        step=current,
+                        expected="safe operator handoff and verified resume",
+                        observed="session stopped without further automation",
+                    )
                 except ReplayStopped as stopped:
                     result = stopped.result
                     if isinstance(result, Failure) and result.step is None:
@@ -275,6 +374,8 @@ async def replay(
                     except (BrowserError, TimeoutError):
                         event("failure_snapshot_unavailable")
             finally:
+                if session:
+                    session.close()
                 await browser.close()
     except BrowserError:
         result = Failure(

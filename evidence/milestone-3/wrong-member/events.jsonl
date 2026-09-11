@@ -1,0 +1,38 @@
+{"event": "run_started", "schema_version": "1.0"}
+{"event": "step_started", "index": 0, "action": "navigate"}
+{"event": "step_completed", "index": 0, "action": "navigate"}
+{"event": "step_started", "index": 1, "action": "fill"}
+{"event": "step_completed", "index": 1, "action": "fill"}
+{"event": "step_started", "index": 2, "action": "select"}
+{"event": "step_completed", "index": 2, "action": "select"}
+{"event": "step_started", "index": 3, "action": "click"}
+{"event": "step_completed", "index": 3, "action": "click"}
+{"event": "step_started", "index": 4, "action": "click"}
+{"event": "ownership_changed", "session_id": "a3c6eda3c867451c9fdcc5972c3a81c7", "previous": "AUTOMATION", "state": "PAUSED"}
+{"event": "intervention_requested", "request_id": "905fe36ba7284571938e692621be346e", "session_id": "a3c6eda3c867451c9fdcc5972c3a81c7", "capability": "review_service_request", "step": "s004", "reason": "blocked_before_action", "state": "PAUSED", "expected": "blocker removed and configured resume checks pass", "snapshot": "intervention-905fe36ba7284571938e692621be346e-dom.json", "operator_kind": "test_driver"}
+{"event": "ownership_changed", "session_id": "a3c6eda3c867451c9fdcc5972c3a81c7", "previous": "PAUSED", "state": "HUMAN"}
+{"event": "human_navigation", "session_id": "a3c6eda3c867451c9fdcc5972c3a81c7", "request_id": "905fe36ba7284571938e692621be346e"}
+{"event": "human_action", "session_id": "a3c6eda3c867451c9fdcc5972c3a81c7", "request_id": "905fe36ba7284571938e692621be346e", "action": "click", "tag": "button", "control": "resolve_interruption"}
+{"event": "ownership_changed", "session_id": "a3c6eda3c867451c9fdcc5972c3a81c7", "previous": "HUMAN", "state": "RESUME_VALIDATION"}
+{"event": "resume_rejected", "request_id": "905fe36ba7284571938e692621be346e", "reason": "resume_checkpoint_failed"}
+{"event": "ownership_changed", "session_id": "a3c6eda3c867451c9fdcc5972c3a81c7", "previous": "RESUME_VALIDATION", "state": "HUMAN"}
+{"event": "human_navigation", "session_id": "a3c6eda3c867451c9fdcc5972c3a81c7", "request_id": "905fe36ba7284571938e692621be346e"}
+{"event": "human_action", "session_id": "a3c6eda3c867451c9fdcc5972c3a81c7", "request_id": "905fe36ba7284571938e692621be346e", "action": "click", "tag": "button", "control": "resolve_interruption"}
+{"event": "ownership_changed", "session_id": "a3c6eda3c867451c9fdcc5972c3a81c7", "previous": "HUMAN", "state": "RESUME_VALIDATION"}
+{"event": "resume_verified", "request_id": "905fe36ba7284571938e692621be346e", "session_id": "a3c6eda3c867451c9fdcc5972c3a81c7", "pending_step": "s004"}
+{"event": "ownership_changed", "session_id": "a3c6eda3c867451c9fdcc5972c3a81c7", "previous": "RESUME_VALIDATION", "state": "AUTOMATION"}
+{"event": "step_completed", "index": 4, "action": "click"}
+{"event": "step_started", "index": 5, "action": "select"}
+{"event": "step_completed", "index": 5, "action": "select"}
+{"event": "step_started", "index": 6, "action": "fill"}
+{"event": "step_completed", "index": 6, "action": "fill"}
+{"event": "step_started", "index": 7, "action": "click"}
+{"event": "step_completed", "index": 7, "action": "click"}
+{"event": "step_started", "index": 8, "action": "check"}
+{"event": "step_completed", "index": 8, "action": "check"}
+{"event": "step_started", "index": 9, "action": "check"}
+{"event": "step_completed", "index": 9, "action": "check"}
+{"event": "step_started", "index": 10, "action": "check"}
+{"event": "step_completed", "index": 10, "action": "check"}
+{"event": "ownership_changed", "session_id": "a3c6eda3c867451c9fdcc5972c3a81c7", "previous": "AUTOMATION", "state": "CLOSED"}
+{"event": "run_finished", "status": "success"}

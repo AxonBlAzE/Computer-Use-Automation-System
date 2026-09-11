@@ -1,0 +1,11 @@
+{
+  "request_id": "905fe36ba7284571938e692621be346e",
+  "session_id": "a3c6eda3c867451c9fdcc5972c3a81c7",
+  "capability": "review_service_request",
+  "step": "s004",
+  "reason": "blocked_before_action",
+  "state": "CLOSED",
+  "expected": "blocker removed and configured resume checks pass",
+  "snapshot": "intervention-905fe36ba7284571938e692621be346e-dom.json",
+  "operator_kind": "test_driver"
+}

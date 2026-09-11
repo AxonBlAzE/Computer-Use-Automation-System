@@ -1,0 +1,28 @@
+{
+  "timeout_seconds": 180.0,
+  "max_interventions": 3,
+  "record_controls": {
+    "Resolve interruption": "resolve_interruption",
+    "Member ID": "member_id",
+    "Find member": "find_member",
+    "Request note": "request_note"
+  },
+  "rules": [
+    {
+      "before": {"role": "button", "name": "New service request"},
+      "checks": [
+        {
+          "id": "resume_member_identity",
+          "action": "check",
+          "target": {"role": "status", "name": "Current member ID"},
+          "equals": {"source": "input", "name": "member_id"}
+        },
+        {
+          "id": "resume_member_details",
+          "action": "check",
+          "target": {"role": "heading", "name": "Member details"}
+        }
+      ]
+    }
+  ]
+}

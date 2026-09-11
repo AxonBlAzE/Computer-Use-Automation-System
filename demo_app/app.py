@@ -1,6 +1,7 @@
 """Small server-rendered target, accessed by automation exclusively through its UI."""
 
 import asyncio
+import os
 from html import escape
 
 from fastapi import FastAPI, Query
@@ -22,6 +23,9 @@ box-sizing:border-box;width:100%}button{font:inherit;padding:.6rem 1rem;margin-t
 background:#174e69;color:white;border:0;border-radius:4px}table{width:100%;margin:1rem 0}
 th{text-align:left}td,th{padding:.5rem;border-bottom:1px solid #ddd}
 [role=alert]{padding:1rem;background:#fff0e8}.muted{color:#586b78;font-size:.9rem}
+dialog{position:fixed;inset:20% auto auto 50%;transform:translateX(-50%);z-index:10;
+max-width:480px;border:2px solid #174e69;border-radius:12px;padding:2rem;
+box-shadow:0 0 0 100vmax #17304266}button:disabled{opacity:.4}
 </style></head><body><main><p class="muted">SANDBOX / SYNTHETIC DATA ONLY</p>"""
         + body
         + "</main></body></html>"
@@ -46,10 +50,23 @@ async def member(member_id: str = "", scenario: str = "normal"):
             '<h1>Search results</h1><p role="status" aria-label="Member not found">'
             'Member not found</p><a href="/">Search again</a>'
         )
+    interrupted = os.environ.get("DEMO_INTERRUPT") == "1"
+    blocker = (
+        """<dialog open aria-modal="true" aria-label="Operator attention required">
+<h2>Operator attention required</h2><p>A simulated runtime interruption needs an operator.
+Resolve it here, then signal resume in the terminal.</p>
+<button onclick="document.getElementById('new-request').disabled=false;
+this.closest('dialog').remove()">Resolve interruption</button></dialog>"""
+        if interrupted
+        else ""
+    )
+    disabled = "disabled" if interrupted else ""
     return page(f"""<h1>Member details</h1><table><tr><th>Member ID</th>
-<td>{escape(member_id)}</td></tr><tr><th>Name</th><td>{MEMBERS[member_id]}</td></tr></table>
+<td role="status" aria-label="Current member ID">{escape(member_id)}</td></tr>
+<tr><th>Name</th><td>{MEMBERS[member_id]}</td></tr></table>
 <form action="/request" method="get"><input type="hidden" name="member_id"
-value="{escape(member_id)}"><button>New service request</button></form>""")
+value="{escape(member_id)}"><button id="new-request" {disabled}>New service request</button>
+</form>{blocker}""")
 
 
 @app.get("/request", response_class=HTMLResponse)

@@ -1,3 +1,4 @@
+import os
 import socket
 import subprocess
 import sys
@@ -7,8 +8,7 @@ import urllib.request
 import pytest
 
 
-@pytest.fixture(scope="module")
-def origin():
+def serve(*, interrupted=False):
     with socket.socket() as sock:
         sock.bind(("127.0.0.1", 0))
         port = sock.getsockname()[1]
@@ -26,6 +26,7 @@ def origin():
         ],
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
+        env={**os.environ, "DEMO_INTERRUPT": "1" if interrupted else "0"},
     )
     base = f"http://127.0.0.1:{port}"
     try:
@@ -42,3 +43,13 @@ def origin():
     finally:
         process.terminate()
         process.wait(timeout=10)
+
+
+@pytest.fixture(scope="module")
+def origin():
+    yield from serve()
+
+
+@pytest.fixture(scope="module")
+def interruption_origin():
+    yield from serve(interrupted=True)
