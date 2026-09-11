@@ -1,0 +1,233 @@
+{
+  "schema_version": "1.0",
+  "name": "review_service_request",
+  "version": "1.0.0",
+  "description": "Find the member identified by member_id, prepare a service request using request_type and request_note, and reach the review page without submitting. Apply the chosen demo scenario. Return the reviewed member ID, request type, and review status.",
+  "inputs": {
+    "member_id": {
+      "type": "string",
+      "description": "Synthetic member identifier",
+      "min_length": 1,
+      "max_length": 20,
+      "choices": null
+    },
+    "request_type": {
+      "type": "string",
+      "description": "Service requested",
+      "min_length": 1,
+      "max_length": 200,
+      "choices": [
+        "statement",
+        "address"
+      ]
+    },
+    "request_note": {
+      "type": "string",
+      "description": "Synthetic request note",
+      "min_length": 1,
+      "max_length": 200,
+      "choices": null
+    },
+    "scenario": {
+      "type": "string",
+      "description": "Demo load scenario",
+      "min_length": 1,
+      "max_length": 200,
+      "choices": [
+        "normal",
+        "slow"
+      ]
+    }
+  },
+  "outputs": {
+    "member_id": {
+      "field": {
+        "type": "string",
+        "description": "Member on review page",
+        "min_length": 1,
+        "max_length": 200,
+        "choices": null
+      },
+      "target": {
+        "role": "status",
+        "name": "Reviewed member ID"
+      }
+    },
+    "request_type": {
+      "field": {
+        "type": "string",
+        "description": "Service on review page",
+        "min_length": 1,
+        "max_length": 200,
+        "choices": [
+          "statement",
+          "address"
+        ]
+      },
+      "target": {
+        "role": "status",
+        "name": "Reviewed request type"
+      }
+    },
+    "review_status": {
+      "field": {
+        "type": "string",
+        "description": "Review readiness",
+        "min_length": 1,
+        "max_length": 200,
+        "choices": [
+          "ready"
+        ]
+      },
+      "target": {
+        "role": "status",
+        "name": "Review status"
+      }
+    }
+  },
+  "steps": [
+    {
+      "action": "navigate",
+      "id": "open",
+      "path": "/"
+    },
+    {
+      "action": "fill",
+      "id": "s001",
+      "target": {
+        "role": "textbox",
+        "name": "Member ID"
+      },
+      "value": {
+        "source": "input",
+        "name": "member_id"
+      }
+    },
+    {
+      "action": "select",
+      "id": "s002",
+      "target": {
+        "role": "combobox",
+        "name": "Demo scenario"
+      },
+      "value": {
+        "source": "input",
+        "name": "scenario"
+      }
+    },
+    {
+      "action": "click",
+      "id": "s003",
+      "target": {
+        "role": "button",
+        "name": "Find member"
+      }
+    },
+    {
+      "action": "click",
+      "id": "s004",
+      "target": {
+        "role": "button",
+        "name": "New service request"
+      }
+    },
+    {
+      "action": "select",
+      "id": "s005",
+      "target": {
+        "role": "combobox",
+        "name": "Request type"
+      },
+      "value": {
+        "source": "input",
+        "name": "request_type"
+      }
+    },
+    {
+      "action": "fill",
+      "id": "s006",
+      "target": {
+        "role": "textbox",
+        "name": "Request note"
+      },
+      "value": {
+        "source": "input",
+        "name": "request_note"
+      }
+    },
+    {
+      "action": "click",
+      "id": "s007",
+      "target": {
+        "role": "button",
+        "name": "Review request"
+      }
+    },
+    {
+      "action": "check",
+      "id": "verify_member_id",
+      "target": {
+        "role": "status",
+        "name": "Reviewed member ID"
+      },
+      "equals": {
+        "source": "input",
+        "name": "member_id"
+      }
+    },
+    {
+      "action": "check",
+      "id": "verify_request_type",
+      "target": {
+        "role": "status",
+        "name": "Reviewed request type"
+      },
+      "equals": {
+        "source": "input",
+        "name": "request_type"
+      }
+    },
+    {
+      "action": "check",
+      "id": "verify_review_status",
+      "target": {
+        "role": "status",
+        "name": "Review status"
+      },
+      "equals": {
+        "source": "literal",
+        "value": "ready"
+      }
+    }
+  ],
+  "outcomes": [
+    {
+      "code": "member_not_found",
+      "after_step": "s003",
+      "target": {
+        "role": "status",
+        "name": "Member not found"
+      }
+    },
+    {
+      "code": "validation_error",
+      "after_step": "s007",
+      "target": {
+        "role": "alert",
+        "name": "Validation error"
+      }
+    }
+  ],
+  "success": {
+    "action": "check",
+    "id": "complete",
+    "target": {
+      "role": "status",
+      "name": "Review status"
+    },
+    "equals": {
+      "source": "literal",
+      "value": "ready"
+    }
+  }
+}

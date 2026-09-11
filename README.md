@@ -1,10 +1,12 @@
 # Computer-Use Automation System
 
-Milestone 1: a typed capability contract, a synthetic FastAPI banking UI, and a
-deterministic Playwright replay executor. No LLM or API key is needed for this milestone.
+Milestone 2: an OpenRouter model discovers a workflow on a synthetic FastAPI banking UI,
+then a saved typed capability replays through Playwright without model decisions.
+Discovery needs an API key; replay and automated tests do not.
 
-The example artifact is **hand-authored**, not evidence of model discovery. Genuine
-LLM discovery and same-session human takeover are future milestones.
+`examples/review-request.json` is the original hand-authored fixture.
+`evidence/milestone-2/discovery-tools/capability.json` was produced by a genuine model
+run and successfully replayed with different inputs. Human takeover is still a future milestone.
 
 ## Setup
 
@@ -49,6 +51,58 @@ configuration. Remove `--headed` to run headlessly.
 Real CLI replay logs are included in `evidence/milestone-1/`, with their provenance
 and commands documented there. The milestone passed 20 tests, including browser integration.
 
+## Discover, then replay
+
+Keep the demo server running. Put your OpenRouter key in the repository-root `.env`:
+
+```dotenv
+OPENROUTER_API_KEY=your-key-here
+OPENROUTER_MODEL=anthropic/claude-sonnet-4.5
+```
+
+`.env` is ignored by Git; `.env.example` contains placeholders only. Discovery loads
+this file without overriding existing environment variables. `--model` overrides the
+model setting. Replay never loads `.env` or imports the OpenRouter adapter.
+
+```sh
+uv run python -m automation discover examples/discovery-task.json --inputs examples/inputs.json --evidence-dir runs/my-discovery --headed
+uv run python -m automation replay runs/my-discovery/capability.json --inputs examples/inputs-second-member.json --headed
+uv run python -m automation replay runs/my-discovery/capability.json --inputs examples/inputs-not-found.json
+```
+
+Choose a new discovery destination each time; directories are never overwritten.
+For the provisioned Windows environment, use the `.venv` substitutions and browser
+environment variable from Setup. No new API calls are needed to demo the saved capability:
+
+```sh
+uv run python -m automation replay evidence/milestone-2/discovery-tools/capability.json --inputs examples/inputs-second-member.json --headed
+```
+
+The task file contains a natural-language goal, typed inputs, output expectations, and
+operator-supplied business-outcome rules. It contains **no ordered action sequence**.
+The model observes the live accessibility snapshot and chooses one typed tool at a time.
+Fill/select tools accept input names; Python resolves the values locally. The model
+chooses output targets, and Python verifies their values before publishing a capability.
+Output assertions are generated from the task contract. Outcome rules are bound to
+the discovered clicks; they are not inferred from a successful trace.
+
+Discovery defaults to at most 24 decisions, 45 seconds per HTTP call, and 240 seconds
+overall. `--max-steps` accepts 1–48. Repeated identical decisions against unchanged
+observations stop as `no_progress`. API errors, malformed decisions, policy violations,
+and failed completion checks stop without publishing a capability. There are no
+automatic model-call retries or model fallbacks.
+
+Discovery evidence includes executed parameterized actions, intent categories, model
+request IDs/token counts, observation hashes, and an artifact hash. Raw conversations
+and page snapshots are not persisted. Exact known free-text input values are replaced
+in observations before sending them to OpenRouter; other visible page text is still
+sent, so use synthetic data only. This is not a general PII detection system.
+
+The successful live run made eight calls using `anthropic/claude-sonnet-4.5` and took
+about 23 seconds. Its generated artifact replayed for member `67890` with request type
+`address`, and returned `member_not_found` for `99999`. Both replays ran with invalid
+model credentials and an invalid model ID. See `evidence/milestone-2/README.md`.
+
 Each valid run creates a unique `runs/<id>/events.jsonl`; failures also attempt a
 sanitized structural `failure-dom.json`. Use `--evidence-dir <new-directory>` to choose
 the destination. Existing directories are never overwritten. Declared outputs are
@@ -68,6 +122,10 @@ uv run ruff check .
   targets stop execution. Readiness checks poll within a deadline; clicks are never retried.
 - `automation/policy.py`: trusted origin/route and action/target allowlists, configured
   independently in `examples/policy.json`. `/commit` and the Submit button are disallowed.
+- `automation/discovery_contracts.py`: task intent and output expectations, separate from steps.
+- `automation/discovery.py`: bounded observation/decision loop and artifact compilation.
+- `automation/openrouter.py`: direct HTTP tool-calling adapter, strict response validation,
+  and discovery-only `.env` loading. Simple tool schemas keep the provider boundary small.
 - `demo_app/app.py`: multi-page search, member detail, request form, and review flow.
 
 Every run uses a fresh browser context. Replay validates invocation inputs before
@@ -84,12 +142,15 @@ business API. Both invalid form notes and missing members have explicit outcomes
   after uncertain side effects are implemented.
 - Unexpected browser dialogs are dismissed and return `intervention_required`; this is
   **not** a human handoff implementation. In-page unknown states fail their checkpoints.
-- Evidence excludes page text, field values, URLs, model transcripts, and raw screenshots.
+- Persistent observations exclude page text, field values, URLs, transcripts, and screenshots.
+  Discovery additionally records validated target labels and parameter references.
   Failure snapshots retain only structural tags, allowlisted roles, visibility, and disabled state.
 - The route guard and action allowlist are safeguards for this controlled target, not a
   complete security boundary against malicious applications, WebSockets, popups, or downloads.
   Policy authors are trusted. Final-submit permission is absent rather than inferred from labels.
 - The demo uses synthetic data and GET forms for simplicity; do not use real PII, credentials,
   externally exposed hosting, or production data with it. Browser URLs contain entered values.
-- No model discovery, real handoff, desktop support, multi-tenant implementation, or final
-  assessment report is claimed. These remain subsequent milestones.
+- Discovery currently requires a task contract; arbitrary goals without declared output
+  expectations are not supported. The model does not invent outcome rules or policies.
+- Real handoff, desktop support, multi-tenant implementation, and the final assessment
+  report remain subsequent milestones.

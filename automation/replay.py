@@ -67,6 +67,67 @@ class BrowserSurface:
     def locate(self, target: Target):
         return self.page.get_by_role(target.role, name=target.name, exact=True)
 
+    async def target_ready(self, target: Target, expected=None, *, inspect=None, step=None):
+        deadline = time.monotonic() + self.policy.timeout_ms / 1000
+        while True:
+            self.guard()
+            if inspect:
+                await inspect()
+            locator = self.locate(target)
+            count = await locator.count()
+            if count > 1:
+                raise ReplayStopped(
+                    Failure(
+                        code="ambiguous_target",
+                        step=step,
+                        expected="exactly one matching control",
+                        observed="multiple matches",
+                    )
+                )
+            if count == 1 and await locator.is_visible():
+                if expected is None or (await locator.inner_text()).strip() == expected:
+                    return locator
+            if time.monotonic() >= deadline:
+                raise ReplayStopped(
+                    Failure(
+                        code="checkpoint_timeout",
+                        step=step,
+                        expected="unique visible target and declared checkpoint",
+                        observed="target absent, hidden, or content did not match",
+                    )
+                )
+            await asyncio.sleep(0.05)
+
+    async def execute_step(self, step, inputs, *, inspect=None):
+        """One policy-checked executor shared by discovery and deterministic replay."""
+
+        def resolve(value):
+            return inputs[value.name] if isinstance(value, InputRef) else value.value
+
+        if step.action == "navigate":
+            if self.page.url != "about:blank":
+                self.guard()
+            await self.page.goto(self.policy.url(step.path), wait_until="domcontentloaded")
+        else:
+            self.guard()
+            if step.action != "check":
+                self.policy.check_action(step.action, step.target)
+            expected = resolve(step.equals) if step.action == "check" and step.equals else None
+            locator = await self.target_ready(
+                step.target,
+                expected,
+                inspect=inspect,
+                step=step.id,
+            )
+            if step.action == "fill":
+                await locator.fill(resolve(step.value))
+            elif step.action == "select":
+                await locator.select_option(resolve(step.value))
+            elif step.action == "click":
+                # Never retry a click: its business effect might already have happened.
+                await locator.click()
+        self.guard()
+
     async def structural_snapshot(self, path: Path):
         # Richer failure signal with no text, input values, URLs, or arbitrary attributes.
         nodes = await self.page.locator("body").evaluate("""body =>
@@ -130,58 +191,14 @@ async def replay(
                     raise ReplayStopped(BusinessOutcome(code=outcome.code, step=current))
 
     async def target_ready(target: Target, expected: str | None = None):
-        deadline = time.monotonic() + policy.timeout_ms / 1000
-        while True:
-            surface.guard()
-            await detect_outcome()
-            locator = surface.locate(target)
-            count = await locator.count()
-            if count > 1:
-                raise ReplayStopped(
-                    Failure(
-                        code="ambiguous_target",
-                        step=current,
-                        expected="exactly one matching control",
-                        observed="multiple matches",
-                    )
-                )
-            if count == 1 and await locator.is_visible():
-                if expected is None or (await locator.inner_text()).strip() == expected:
-                    return locator
-            if time.monotonic() >= deadline:
-                raise ReplayStopped(
-                    Failure(
-                        code="checkpoint_timeout",
-                        step=current,
-                        expected="unique visible target and declared checkpoint",
-                        observed="target absent, hidden, or content did not match",
-                    )
-                )
-            await asyncio.sleep(0.05)
+        return await surface.target_ready(target, expected, inspect=detect_outcome, step=current)
 
     async def execute():
         nonlocal current
         for index, step in enumerate(capability.steps):
             current = step.id
             event("step_started", index=index, action=step.action)
-            if step.action == "navigate":
-                if index != 0:
-                    surface.guard()
-                await surface.page.goto(policy.url(step.path), wait_until="domcontentloaded")
-            else:
-                surface.guard()
-                if step.action == "check":
-                    await target_ready(step.target, resolve(step.equals) if step.equals else None)
-                else:
-                    policy.check_action(step.action, step.target)
-                    locator = await target_ready(step.target)
-                    if step.action == "fill":
-                        await locator.fill(resolve(step.value))
-                    elif step.action == "select":
-                        await locator.select_option(resolve(step.value))
-                    elif step.action == "click":
-                        # Never retry a click: its business effect might already have happened.
-                        await locator.click()
+            await surface.execute_step(step, inputs, inspect=detect_outcome)
             completed.add(step.id)
             surface.guard()
             await detect_outcome()

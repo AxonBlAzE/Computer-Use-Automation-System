@@ -1,0 +1,4 @@
+{"event": "discovery_started", "elapsed_ms": 0, "max_steps": 24, "timeout_seconds": 240}
+{"event": "entry_opened", "elapsed_ms": 578}
+{"event": "model_requested", "elapsed_ms": 609, "index": 0, "observation_sha256": "fa5a339b60cee1e4f79a0ac4a80ded09fc7338754297c5fa9ab34c843cd3e254"}
+{"event": "discovery_finished", "elapsed_ms": 3609, "status": "failure", "code": "invalid_model_response"}

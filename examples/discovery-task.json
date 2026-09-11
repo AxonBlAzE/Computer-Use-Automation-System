@@ -1,0 +1,22 @@
+{
+  "name": "review_service_request",
+  "version": "1.0.0",
+  "goal": "Find the member identified by member_id, prepare a service request using request_type and request_note, and reach the review page without submitting. Apply the chosen demo scenario. Return the reviewed member ID, request type, and review status.",
+  "entry_path": "/",
+  "inputs": {
+    "member_id": {"type": "string", "description": "Synthetic member identifier", "max_length": 20},
+    "request_type": {"type": "string", "description": "Service requested", "choices": ["statement", "address"]},
+    "request_note": {"type": "string", "description": "Synthetic request note", "max_length": 200},
+    "scenario": {"type": "string", "description": "Demo load scenario", "choices": ["normal", "slow"]}
+  },
+  "outputs": {
+    "member_id": {"field": {"type": "string", "description": "Member on review page"}, "equals": {"source": "input", "name": "member_id"}},
+    "request_type": {"field": {"type": "string", "description": "Service on review page", "choices": ["statement", "address"]}, "equals": {"source": "input", "name": "request_type"}},
+    "review_status": {"field": {"type": "string", "description": "Review readiness", "choices": ["ready"]}, "equals": {"source": "literal", "value": "ready"}}
+  },
+  "success_output": "review_status",
+  "outcome_rules": [
+    {"code": "member_not_found", "after_click": {"role": "button", "name": "Find member"}, "target": {"role": "status", "name": "Member not found"}},
+    {"code": "validation_error", "after_click": {"role": "button", "name": "Review request"}, "target": {"role": "alert", "name": "Validation error"}}
+  ]
+}

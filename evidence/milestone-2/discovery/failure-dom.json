@@ -1,0 +1,68 @@
+[
+  {
+    "tag": "main",
+    "role": null,
+    "visible": true,
+    "disabled": false
+  },
+  {
+    "tag": "p",
+    "role": null,
+    "visible": true,
+    "disabled": false
+  },
+  {
+    "tag": "h1",
+    "role": null,
+    "visible": true,
+    "disabled": false
+  },
+  {
+    "tag": "form",
+    "role": null,
+    "visible": true,
+    "disabled": false
+  },
+  {
+    "tag": "label",
+    "role": null,
+    "visible": true,
+    "disabled": false
+  },
+  {
+    "tag": "input",
+    "role": null,
+    "visible": true,
+    "disabled": false
+  },
+  {
+    "tag": "label",
+    "role": null,
+    "visible": true,
+    "disabled": false
+  },
+  {
+    "tag": "select",
+    "role": null,
+    "visible": true,
+    "disabled": false
+  },
+  {
+    "tag": "option",
+    "role": null,
+    "visible": false,
+    "disabled": false
+  },
+  {
+    "tag": "option",
+    "role": null,
+    "visible": false,
+    "disabled": false
+  },
+  {
+    "tag": "button",
+    "role": null,
+    "visible": true,
+    "disabled": false
+  }
+]
